@@ -1,35 +1,47 @@
 from typing import Dict, Any
 
-def is_mucosa(symptoms: Dict[str, Any]) -> bool:
+def get_mucosa_confidence(symptoms: Dict[str, Any]) -> float:
     """
-    Shilliq qavat (mucosa) kasalliklari belgilarini tekshirish.
-    Yara, oq qatlam yoki pufakchalar mavjudligini qaraydi.
+    Shilliq qavat (mucosa) kasalliklari belgilarini tekshirish va ishonchlilikni hisoblash.
+    1 ta belgi = 0.85, 2 ta belgi = 0.90, 3 ta belgi = 0.95
     """
-    return (
-        symptoms.get("ulcer", False) or 
-        symptoms.get("white_patch", False) or 
-        symptoms.get("blisters", False)
-    )
+    count = sum([
+        bool(symptoms.get("ulcer", False)),
+        bool(symptoms.get("white_patch", False)),
+        bool(symptoms.get("blisters", False))
+    ])
+    
+    if count == 1:
+        return 0.85
+    elif count == 2:
+        return 0.90
+    elif count == 3:
+        return 0.95
+    return 0.0
+
+def get_periodontal_confidence(symptoms: Dict[str, Any]) -> float:
+    """
+    Periodontal (milk) kasalliklari belgilarini tekshirish va ishonchlilikni hisoblash.
+    1 ta belgi = 0.75, 2 ta belgi = 0.85
+    """
+    count = sum([
+        bool(symptoms.get("gum_bleeding", False)),
+        bool(symptoms.get("gum_swelling", False))
+    ])
+    
+    if count == 1:
+        return 0.75
+    elif count >= 2:
+        return 0.85
+    return 0.0
 
 def is_jaw(symptoms: Dict[str, Any]) -> bool:
     """
     Jag' (jaw) kasalliklari belgilarini tekshirish.
-    Shish va isitma bir vaqtda kelganini qaraydi.
+    Shish va isitma bir vaqtda kelishi shart.
     """
-    return (
-        symptoms.get("swelling", False) and 
-        symptoms.get("fever", False)
-    )
+    return bool(symptoms.get("swelling", False)) and bool(symptoms.get("fever", False))
 
-def is_periodontal(symptoms: Dict[str, Any]) -> bool:
-    """
-    Periodontal (milk) kasalliklari belgilarini tekshirish.
-    Milk qonashi yoki milk shishishini qaraydi.
-    """
-    return (
-        symptoms.get("gum_bleeding", False) or 
-        symptoms.get("gum_swelling", False)
-    )
 
 def classify_category(symptoms: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -49,15 +61,16 @@ def classify_category(symptoms: Dict[str, Any]) -> Dict[str, Any]:
     """
     
     # 1. MUCOSA tekshiruvi (Eng yuqori ustuvorlik)
-    if is_mucosa(symptoms):
+    mucosa_conf = get_mucosa_confidence(symptoms)
+    if mucosa_conf > 0:
         return {
             "category": "mucosa",
-            "confidence": 0.9,
+            "confidence": mucosa_conf,
             "reason": "Og‘izda yara yoki oq qatlam aniqlangan — shilliq qavat kasalligi ehtimoli yuqori"
         }
         
     # 2. JAW tekshiruvi
-    elif is_jaw(symptoms):
+    if is_jaw(symptoms):
         return {
             "category": "jaw",
             "confidence": 0.9,
@@ -65,17 +78,17 @@ def classify_category(symptoms: Dict[str, Any]) -> Dict[str, Any]:
         }
         
     # 3. PERIODONTAL tekshiruvi
-    elif is_periodontal(symptoms):
+    perio_conf = get_periodontal_confidence(symptoms)
+    if perio_conf > 0:
         return {
             "category": "periodontal",
-            "confidence": 0.8,
+            "confidence": perio_conf,
             "reason": "Milk bilan bog‘liq belgilar mavjud — periodontal kasallik ehtimoli yuqori"
         }
         
     # 4. TOOTH (Qolgan barcha holatlar - Default)
-    else:
-        return {
-            "category": "tooth",
-            "confidence": 0.6,
-            "reason": "Asosiy belgilar tish bilan bog‘liq — tish kasalligi ehtimoli yuqori"
-        }
+    return {
+        "category": "tooth",
+        "confidence": 0.6,
+        "reason": "Asosiy belgilar tish bilan bog‘liq — tish kasalligi ehtimoli yuqori"
+    }
